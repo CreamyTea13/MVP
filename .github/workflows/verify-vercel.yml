@@ -13,32 +13,29 @@ jobs:
   smoke-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify production hosts and parity
+      - name: Verify production host and hot mirror
         shell: bash
         run: |
           set -euo pipefail
           PRIMARY="https://everyday-engine-tylerkapp13-5747.vercel.app"
           MIRROR="https://everyday-engine-rqlvuu.v2.appdeploy.ai"
-          PATHS=(
+          HTML_PATHS=(
             "/"
             "/tools/unit-price-compare/"
             "/tools/overtime-pay/"
             "/affiliate-disclosure.html"
+          )
+          STATIC_PATHS=(
             "/assets/app.js"
             "/assets/monetization.json"
             "/robots.txt"
             "/sitemap.xml"
           )
 
-          key_for() {
-            printf '%s' "$1" | tr '/.' '__'
-          }
+          key_for() { printf '%s' "$1" | tr '/.' '__'; }
 
           fetch_with_retry() {
-            local base="$1"
-            local path="$2"
-            local out="$3"
-            local code=""
+            local base="$1" path="$2" out="$3" code=""
             for attempt in {1..12}; do
               code=$(curl -L -sS -o "$out" -w "%{http_code}" "$base$path" || true)
               if [ "$code" = "200" ]; then
@@ -51,43 +48,54 @@ jobs:
             return 1
           }
 
-          assert_primary_contains() {
-            local path="$1"
-            local text="$2"
-            local key
-            key=$(key_for "$path")
-            grep -Fq "$text" "/tmp/ee-primary/$key"
-          }
-
-          mkdir -p /tmp/ee-primary /tmp/ee-mirror
-          for path in "${PATHS[@]}"; do
+          fetch_pair() {
+            local path="$1" key
             key=$(key_for "$path")
             fetch_with_retry "$PRIMARY" "$path" "/tmp/ee-primary/$key"
             fetch_with_retry "$MIRROR" "$path" "/tmp/ee-mirror/$key"
-          done
+          }
 
-          assert_primary_contains "/" "Everyday Engine"
-          assert_primary_contains "/tools/unit-price-compare/" "Unit Price Compare"
-          assert_primary_contains "/tools/overtime-pay/" "Overtime Pay Calculator"
-          assert_primary_contains "/affiliate-disclosure.html" "Affiliate Disclosure"
-          assert_primary_contains "/assets/app.js" "Share result"
-          assert_primary_contains "/assets/monetization.json" '"enabled": false'
-          assert_primary_contains "/assets/monetization.json" '"plusUrl": ""'
-          assert_primary_contains "/robots.txt" "User-agent: *"
-          assert_primary_contains "/sitemap.xml" "/tools/unit-price-compare/"
-          assert_primary_contains "/sitemap.xml" "/tools/resale-profit/"
-
-          for path in "${PATHS[@]}"; do
+          assert_both() {
+            local path="$1" text="$2" key
             key=$(key_for "$path")
-            if ! cmp -s "/tmp/ee-primary/$key" "/tmp/ee-mirror/$key"; then
-              echo "Content mismatch between Vercel and AppDeploy at $path"
+            grep -Fq "$text" "/tmp/ee-primary/$key"
+            grep -Fq "$text" "/tmp/ee-mirror/$key"
+          }
+
+          mkdir -p /tmp/ee-primary /tmp/ee-mirror
+          for path in "${HTML_PATHS[@]}" "${STATIC_PATHS[@]}"; do fetch_pair "$path"; done
+
+          assert_both "/" "Everyday Engine"
+          assert_both "/" "Unit Price Compare"
+          assert_both "/" "Resale Profit Calculator"
+          assert_both "/tools/unit-price-compare/" "Unit Price Compare"
+          assert_both "/tools/overtime-pay/" "Overtime Pay Calculator"
+          assert_both "/affiliate-disclosure.html" "Affiliate Disclosure"
+          assert_both "/assets/app.js" "Share result"
+          assert_both "/assets/monetization.json" '"enabled": false'
+          assert_both "/assets/monetization.json" '"plusUrl": ""'
+          assert_both "/robots.txt" "User-agent: *"
+          assert_both "/sitemap.xml" "/tools/unit-price-compare/"
+          assert_both "/sitemap.xml" "/tools/resale-profit/"
+
+          for path in "${STATIC_PATHS[@]}"; do
+            key=$(key_for "$path")
+            cmp -s "/tmp/ee-primary/$key" "/tmp/ee-mirror/$key" || {
+              echo "Static asset mismatch between Vercel and AppDeploy at $path"
               diff -u "/tmp/ee-primary/$key" "/tmp/ee-mirror/$key" | head -80 || true
               exit 1
-            fi
-            echo "$path -> byte-identical across Vercel and AppDeploy"
+            }
+            echo "$path -> byte-identical across both hosts"
           done
 
-          home_key=$(key_for "/")
-          grep -Fq 'rel="canonical" href="https://everyday-engine-tylerkapp13-5747.vercel.app/' "/tmp/ee-mirror/$home_key"
-          echo "Canonical authority remains on Vercel; AppDeploy is a verified hot mirror."
-          echo "Everyday Engine production parity check passed."
+          canonical='rel="canonical" href="https://everyday-engine-tylerkapp13-5747.vercel.app/'
+          for path in "${HTML_PATHS[@]}"; do
+            key=$(key_for "$path")
+            grep -Fq "$canonical" "/tmp/ee-mirror/$key" || {
+              echo "Mirror lost Vercel canonical authority at $path"
+              exit 1
+            }
+          done
+
+          echo "Vercel remains canonical production; AppDeploy is a healthy branded hot mirror."
+          echo "Everyday Engine production verification passed."
