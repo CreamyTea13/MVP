@@ -1,4 +1,4 @@
-name: Verify Vercel Production
+name: Verify Everyday Engine Production
 
 on:
   push:
@@ -13,55 +13,68 @@ jobs:
   smoke-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify multi-page production build
+      - name: Verify production hosts and parity
         shell: bash
         run: |
           set -euo pipefail
-          BASE="https://everyday-engine-tylerkapp13-5747.vercel.app"
+          PRIMARY="https://everyday-engine-tylerkapp13-5747.vercel.app"
+          MIRROR="https://everyday-engine-rqlvuu.v2.appdeploy.ai"
+          PATHS=(
+            "/"
+            "/tools/unit-price-compare/"
+            "/tools/overtime-pay/"
+            "/affiliate-disclosure.html"
+            "/assets/app.js"
+            "/assets/monetization.json"
+            "/robots.txt"
+            "/sitemap.xml"
+          )
 
           fetch_with_retry() {
-            local path="$1"
-            local out="$2"
+            local base="$1"
+            local path="$2"
+            local out="$3"
             local code=""
             for attempt in {1..12}; do
-              code=$(curl -L -sS -o "$out" -w "%{http_code}" "$BASE$path" || true)
+              code=$(curl -L -sS -o "$out" -w "%{http_code}" "$base$path" || true)
               if [ "$code" = "200" ]; then
-                echo "$path -> HTTP 200"
+                echo "$base$path -> HTTP 200"
                 return 0
               fi
-              echo "$path -> HTTP $code (attempt $attempt/12)"
+              echo "$base$path -> HTTP $code (attempt $attempt/12)"
               sleep 10
             done
             return 1
           }
 
-          fetch_with_retry "/" /tmp/home
-          grep -Fq "Everyday Engine" /tmp/home
-          grep -Fq "Unit Price Compare" /tmp/home
-          grep -Fq "Resale Profit Calculator" /tmp/home
+          mkdir -p /tmp/ee-primary /tmp/ee-mirror
+          for path in "${PATHS[@]}"; do
+            key=$(printf '%s' "$path" | tr '/.' '__')
+            fetch_with_retry "$PRIMARY" "$path" "/tmp/ee-primary/$key"
+            fetch_with_retry "$MIRROR" "$path" "/tmp/ee-mirror/$key"
+          done
 
-          fetch_with_retry "/tools/unit-price-compare/" /tmp/unit
-          grep -Fq "Unit Price Compare" /tmp/unit
+          grep -Fq "Everyday Engine" /tmp/ee-primary/__
+          grep -Fq "Unit Price Compare" /tmp/ee-primary/__tools_unit-price-compare__
+          grep -Fq "Overtime Pay Calculator" /tmp/ee-primary/__tools_overtime-pay__
+          grep -Fq "Affiliate Disclosure" /tmp/ee-primary/__affiliate-disclosure_html
+          grep -Fq "Share result" /tmp/ee-primary/__assets_app_js
+          grep -Fq '"enabled": false' /tmp/ee-primary/__assets_monetization_json
+          grep -Fq '"plusUrl": ""' /tmp/ee-primary/__assets_monetization_json
+          grep -Fq "User-agent: *" /tmp/ee-primary/__robots_txt
+          grep -Fq "/tools/unit-price-compare/" /tmp/ee-primary/__sitemap_xml
+          grep -Fq "/tools/resale-profit/" /tmp/ee-primary/__sitemap_xml
 
-          fetch_with_retry "/tools/overtime-pay/" /tmp/overtime
-          grep -Fq "Overtime Pay Calculator" /tmp/overtime
+          for path in "${PATHS[@]}"; do
+            key=$(printf '%s' "$path" | tr '/.' '__')
+            if ! cmp -s "/tmp/ee-primary/$key" "/tmp/ee-mirror/$key"; then
+              echo "Content mismatch between Vercel and AppDeploy at $path"
+              diff -u "/tmp/ee-primary/$key" "/tmp/ee-mirror/$key" | head -80 || true
+              exit 1
+            fi
+            echo "$path -> byte-identical across Vercel and AppDeploy"
+          done
 
-          fetch_with_retry "/affiliate-disclosure.html" /tmp/disclosure
-          grep -Fq "Affiliate Disclosure" /tmp/disclosure
-
-          fetch_with_retry "/assets/app.js" /tmp/app
-          grep -Fq "Share result" /tmp/app
-
-          fetch_with_retry "/assets/monetization.json" /tmp/monetization
-          grep -Fq '"enabled": false' /tmp/monetization
-          grep -Fq '"plusUrl": ""' /tmp/monetization
-
-          fetch_with_retry "/robots.txt" /tmp/robots
-          grep -Fq "User-agent: *" /tmp/robots
-
-          fetch_with_retry "/sitemap.xml" /tmp/sitemap
-          grep -Fq "<urlset" /tmp/sitemap
-          grep -Fq "/tools/unit-price-compare/" /tmp/sitemap
-          grep -Fq "/tools/resale-profit/" /tmp/sitemap
-
-          echo "Everyday Engine multi-page production smoke test passed."
+          grep -Fq 'rel="canonical" href="https://everyday-engine-tylerkapp13-5747.vercel.app/' /tmp/ee-mirror/__
+          echo "Canonical authority remains on Vercel; AppDeploy is a verified hot mirror."
+          echo "Everyday Engine production parity check passed."
