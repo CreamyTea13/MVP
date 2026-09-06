@@ -30,6 +30,10 @@ jobs:
             "/sitemap.xml"
           )
 
+          key_for() {
+            printf '%s' "$1" | tr '/.' '__'
+          }
+
           fetch_with_retry() {
             local base="$1"
             local path="$2"
@@ -47,26 +51,34 @@ jobs:
             return 1
           }
 
+          assert_primary_contains() {
+            local path="$1"
+            local text="$2"
+            local key
+            key=$(key_for "$path")
+            grep -Fq "$text" "/tmp/ee-primary/$key"
+          }
+
           mkdir -p /tmp/ee-primary /tmp/ee-mirror
           for path in "${PATHS[@]}"; do
-            key=$(printf '%s' "$path" | tr '/.' '__')
+            key=$(key_for "$path")
             fetch_with_retry "$PRIMARY" "$path" "/tmp/ee-primary/$key"
             fetch_with_retry "$MIRROR" "$path" "/tmp/ee-mirror/$key"
           done
 
-          grep -Fq "Everyday Engine" /tmp/ee-primary/__
-          grep -Fq "Unit Price Compare" /tmp/ee-primary/__tools_unit-price-compare__
-          grep -Fq "Overtime Pay Calculator" /tmp/ee-primary/__tools_overtime-pay__
-          grep -Fq "Affiliate Disclosure" /tmp/ee-primary/__affiliate-disclosure_html
-          grep -Fq "Share result" /tmp/ee-primary/__assets_app_js
-          grep -Fq '"enabled": false' /tmp/ee-primary/__assets_monetization_json
-          grep -Fq '"plusUrl": ""' /tmp/ee-primary/__assets_monetization_json
-          grep -Fq "User-agent: *" /tmp/ee-primary/__robots_txt
-          grep -Fq "/tools/unit-price-compare/" /tmp/ee-primary/__sitemap_xml
-          grep -Fq "/tools/resale-profit/" /tmp/ee-primary/__sitemap_xml
+          assert_primary_contains "/" "Everyday Engine"
+          assert_primary_contains "/tools/unit-price-compare/" "Unit Price Compare"
+          assert_primary_contains "/tools/overtime-pay/" "Overtime Pay Calculator"
+          assert_primary_contains "/affiliate-disclosure.html" "Affiliate Disclosure"
+          assert_primary_contains "/assets/app.js" "Share result"
+          assert_primary_contains "/assets/monetization.json" '"enabled": false'
+          assert_primary_contains "/assets/monetization.json" '"plusUrl": ""'
+          assert_primary_contains "/robots.txt" "User-agent: *"
+          assert_primary_contains "/sitemap.xml" "/tools/unit-price-compare/"
+          assert_primary_contains "/sitemap.xml" "/tools/resale-profit/"
 
           for path in "${PATHS[@]}"; do
-            key=$(printf '%s' "$path" | tr '/.' '__')
+            key=$(key_for "$path")
             if ! cmp -s "/tmp/ee-primary/$key" "/tmp/ee-mirror/$key"; then
               echo "Content mismatch between Vercel and AppDeploy at $path"
               diff -u "/tmp/ee-primary/$key" "/tmp/ee-mirror/$key" | head -80 || true
@@ -75,6 +87,7 @@ jobs:
             echo "$path -> byte-identical across Vercel and AppDeploy"
           done
 
-          grep -Fq 'rel="canonical" href="https://everyday-engine-tylerkapp13-5747.vercel.app/' /tmp/ee-mirror/__
+          home_key=$(key_for "/")
+          grep -Fq 'rel="canonical" href="https://everyday-engine-tylerkapp13-5747.vercel.app/' "/tmp/ee-mirror/$home_key"
           echo "Canonical authority remains on Vercel; AppDeploy is a verified hot mirror."
           echo "Everyday Engine production parity check passed."
