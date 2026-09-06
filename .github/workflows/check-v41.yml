@@ -1,0 +1,37 @@
+name: Diagnose Everyday Engine v4.1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/check-v41.yml
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check generated and stable Vercel URLs
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEY="bb07bc1aac3124e31ea838541931a21b"
+          GENERATED="https://everyday-engine-j4tgrkw35-tylerkapp13-5747.vercel.app"
+          STABLE="https://everyday-engine-tylerkapp13-5747.vercel.app"
+          failures=0
+          for base in "$GENERATED" "$STABLE"; do
+            echo "=== $base ==="
+            for path in "/" "/$KEY.txt" "/tools/unit-price-compare/" "/sitemap.xml"; do
+              out="/tmp/body"
+              code=$(curl -L -sS -o "$out" -w "%{http_code}" "$base$path" || true)
+              echo "$path -> HTTP $code"
+              if [ "$code" != "200" ]; then failures=$((failures+1)); continue; fi
+              case "$path" in
+                "/") grep -Fq "Everyday Engine" "$out" || failures=$((failures+1));;
+                "/$KEY.txt") [ "$(tr -d '\r\n' < "$out")" = "$KEY" ] || failures=$((failures+1));;
+                "/tools/unit-price-compare/") grep -Fq "Unit Price Compare" "$out" || failures=$((failures+1));;
+                "/sitemap.xml") grep -Fq "/tools/resale-profit/" "$out" || failures=$((failures+1));;
+              esac
+            done
+          done
+          echo "failures=$failures"
+          [ "$failures" -eq 0 ]
