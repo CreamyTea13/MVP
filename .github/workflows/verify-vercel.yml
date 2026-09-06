@@ -19,6 +19,7 @@ jobs:
           set -euo pipefail
           PRIMARY="https://everyday-engine-tylerkapp13-5747.vercel.app"
           MIRROR="https://everyday-engine-rqlvuu.v2.appdeploy.ai"
+          INDEXNOW_KEY="bb07bc1aac3124e31ea838541931a21b"
           HTML_PATHS=(
             "/"
             "/tools/unit-price-compare/"
@@ -30,6 +31,7 @@ jobs:
             "/assets/monetization.json"
             "/robots.txt"
             "/sitemap.xml"
+            "/$INDEXNOW_KEY.txt"
           )
 
           key_for() { printf '%s' "$1" | tr '/.' '__'; }
@@ -77,6 +79,7 @@ jobs:
           assert_both "/robots.txt" "User-agent: *"
           assert_both "/sitemap.xml" "/tools/unit-price-compare/"
           assert_both "/sitemap.xml" "/tools/resale-profit/"
+          assert_both "/$INDEXNOW_KEY.txt" "$INDEXNOW_KEY"
 
           for path in "${STATIC_PATHS[@]}"; do
             key=$(key_for "$path")
@@ -98,4 +101,5 @@ jobs:
           done
 
           echo "Vercel remains canonical production; AppDeploy is a healthy branded hot mirror."
+          echo "IndexNow ownership key is healthy on both hosts."
           echo "Everyday Engine production verification passed."
