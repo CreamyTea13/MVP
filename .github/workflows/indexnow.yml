@@ -1,0 +1,62 @@
+name: Notify IndexNow
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - build.mjs
+      - postbuild.mjs
+      - run-postbuild.mjs
+      - package.json
+      - vercel.json
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for production update and notify IndexNow
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="https://everyday-engine-tylerkapp13-5747.vercel.app"
+          HOST="everyday-engine-tylerkapp13-5747.vercel.app"
+          KEY="bb07bc1aac3124e31ea838541931a21b"
+          KEY_URL="$BASE/$KEY.txt"
+
+          ready=0
+          for attempt in {1..36}; do
+            code=$(curl -L -sS -o /tmp/indexnow-key -w "%{http_code}" "$KEY_URL" || true)
+            body=$(tr -d '\r\n' </tmp/indexnow-key 2>/dev/null || true)
+            if [ "$code" = "200" ] && [ "$body" = "$KEY" ]; then
+              ready=1
+              echo "IndexNow ownership key is live."
+              break
+            fi
+            echo "Waiting for production key file (attempt $attempt/36, HTTP $code)."
+            sleep 10
+          done
+          [ "$ready" = "1" ] || { echo "Production key file did not become available."; exit 1; }
+
+          curl -L -fsS "$BASE/sitemap.xml" -o /tmp/sitemap.xml
+          python - <<'PY' > /tmp/indexnow.json
+          import json, xml.etree.ElementTree as ET
+          base='https://everyday-engine-tylerkapp13-5747.vercel.app'
+          host='everyday-engine-tylerkapp13-5747.vercel.app'
+          key='bb07bc1aac3124e31ea838541931a21b'
+          root=ET.parse('/tmp/sitemap.xml').getroot()
+          ns={'s':'http://www.sitemaps.org/schemas/sitemap/0.9'}
+          urls=[el.text.strip() for el in root.findall('s:url/s:loc',ns) if el.text]
+          payload={'host':host,'key':key,'keyLocation':f'{base}/{key}.txt','urlList':urls}
+          print(json.dumps(payload,separators=(',',':')))
+          print(f'Submitting {len(urls)} URLs to IndexNow.', file=__import__('sys').stderr)
+          PY
+
+          code=$(curl -sS -o /tmp/indexnow-response -w "%{http_code}" \
+            -X POST "https://api.indexnow.org/indexnow" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            --data-binary @/tmp/indexnow.json || true)
+          cat /tmp/indexnow-response || true
+          echo
+          echo "IndexNow HTTP $code"
+          [ "$code" = "200" ] || exit 1
