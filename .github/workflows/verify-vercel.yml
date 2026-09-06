@@ -11,7 +11,7 @@ jobs:
   smoke-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify portable production build
+      - name: Verify multi-page production build
         shell: bash
         run: |
           set -euo pipefail
@@ -36,16 +36,30 @@ jobs:
           fetch_with_retry "/" /tmp/home
           grep -Fq "Everyday Engine" /tmp/home
           grep -Fq "Unit Price Compare" /tmp/home
-          grep -Fq "Resale Profit" /tmp/home
-          grep -Fq "Share result" /tmp/home
+          grep -Fq "Resale Profit Calculator" /tmp/home
 
-          fetch_with_retry "/assets/config.js" /tmp/config
-          grep -Fq "plusUrl" /tmp/config
+          fetch_with_retry "/tools/unit-price-compare/" /tmp/unit
+          grep -Fq "Unit Price Compare" /tmp/unit
+
+          fetch_with_retry "/tools/overtime-pay/" /tmp/overtime
+          grep -Fq "Overtime Pay Calculator" /tmp/overtime
+
+          fetch_with_retry "/affiliate-disclosure.html" /tmp/disclosure
+          grep -Fq "Affiliate Disclosure" /tmp/disclosure
+
+          fetch_with_retry "/assets/app.js" /tmp/app
+          grep -Fq "Share result" /tmp/app
+
+          fetch_with_retry "/assets/monetization.json" /tmp/monetization
+          grep -Fq '"enabled": false' /tmp/monetization
+          grep -Fq '"plusUrl": ""' /tmp/monetization
 
           fetch_with_retry "/robots.txt" /tmp/robots
           grep -Fq "User-agent: *" /tmp/robots
 
           fetch_with_retry "/sitemap.xml" /tmp/sitemap
           grep -Fq "<urlset" /tmp/sitemap
+          grep -Fq "/tools/unit-price-compare/" /tmp/sitemap
+          grep -Fq "/tools/resale-profit/" /tmp/sitemap
 
-          echo "Everyday Engine portable production smoke test passed."
+          echo "Everyday Engine multi-page production smoke test passed."
