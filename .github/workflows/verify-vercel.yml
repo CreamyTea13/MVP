@@ -11,24 +11,32 @@ jobs:
   smoke-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify public routes
+      - name: Diagnose public routes
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           BASE="https://everyday-engine-qr305gm2w-tylerkapp13-5747.vercel.app"
+          failures=0
           check() {
             local path="$1"
             local expect="$2"
             local out="/tmp/ee$(echo "$path" | tr '/.' '__')"
             code=$(curl -L -sS -o "$out" -w "%{http_code}" "$BASE$path")
             echo "$path -> HTTP $code"
-            test "$code" = "200"
-            grep -Fq "$expect" "$out"
-            echo "  contains: $expect"
+            if [ "$code" != "200" ] || ! grep -Fq "$expect" "$out"; then
+              echo "  expected content missing: $expect"
+              echo "  title: $(grep -io '<title>[^<]*' "$out" | head -1 | sed 's/<title>//I')"
+              echo "  body preview: $(tr '\n' ' ' < "$out" | head -c 500)"
+              echo
+              failures=$((failures+1))
+            else
+              echo "  contains: $expect"
+            fi
           }
           check "/" "Everyday Engine"
           check "/tools/unit-price-compare/" "Unit Price Compare"
           check "/tools/overtime-pay/" "Overtime Pay Calculator"
           check "/robots.txt" "User-agent: *"
           check "/sitemap.xml" "<urlset"
-          echo "VERCEL_SMOKE_TEST=PASS"
+          echo "failures=$failures"
+          test "$failures" -eq 0
