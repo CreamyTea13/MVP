@@ -8,6 +8,7 @@ on:
       - postbuild.mjs
       - run-postbuild.mjs
       - seo-v42.mjs
+      - plus-v43.mjs
       - package.json
       - vercel.json
   workflow_dispatch:

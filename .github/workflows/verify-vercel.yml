@@ -81,10 +81,7 @@ jobs:
 
           for path in "${STATIC_PATHS[@]}"; do
             key=$(key_for "$path")
-            cmp -s "/tmp/ee-primary/$key" "/tmp/ee-mirror/$key" || {
-              echo "Static asset mismatch between Vercel and AppDeploy at $path"
-              exit 1
-            }
+            cmp -s "/tmp/ee-primary/$key" "/tmp/ee-mirror/$key" || { echo "Static asset mismatch between Vercel and AppDeploy at $path"; exit 1; }
           done
 
           canonical='rel="canonical" href="https://everyday-engine-tylerkapp13-5747.vercel.app/'
@@ -96,6 +93,14 @@ jobs:
           unit_key=$(key_for "/tools/unit-price-compare/")
           grep -Fq "How to make the decision" "/tmp/ee-mirror/$unit_key"
           grep -Fq "BreadcrumbList" "/tmp/ee-mirror/$unit_key"
+
+          plus_file="/tmp/ee-mirror/plus"
+          fetch_200 "$MIRROR" "/plus/" "$plus_file"
+          grep -Fq "30 everyday calculators. One offline toolkit." "$plus_file"
+          grep -Fq '$9 one-time' "$plus_file"
+          grep -Fq 'noindex,nofollow' "$plus_file"
+          grep -Fq 'Checkout activation pending.' "$plus_file"
+          if grep -Fq 'id="plusCheckout"' "$plus_file"; then echo "Plus checkout was exposed without plusUrl"; exit 1; fi
 
           mirror_key="/tmp/ee-mirror/indexnow-key"
           fetch_200 "$MIRROR" "/$INDEXNOW_KEY.txt" "$mirror_key"
@@ -113,5 +118,5 @@ jobs:
             exit 1
           fi
 
-          echo "Vercel canonical production is healthy; AppDeploy v4.2 staging is healthy."
+          echo "Vercel canonical production is healthy; AppDeploy v4.3 staging is healthy."
           echo "Everyday Engine production verification passed."
