@@ -11,11 +11,11 @@ jobs:
   smoke-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Diagnose public routes
+      - name: Verify stable production alias
         shell: bash
         run: |
           set -u
-          BASE="https://everyday-engine-qr305gm2w-tylerkapp13-5747.vercel.app"
+          BASE="https://everyday-engine-tylerkapp13-5747.vercel.app"
           failures=0
           check() {
             local path="$1"
@@ -26,8 +26,6 @@ jobs:
             if [ "$code" != "200" ] || ! grep -Fq "$expect" "$out"; then
               echo "  expected content missing: $expect"
               echo "  title: $(grep -io '<title>[^<]*' "$out" | head -1 | sed 's/<title>//I')"
-              echo "  body preview: $(tr '\n' ' ' < "$out" | head -c 500)"
-              echo
               failures=$((failures+1))
             else
               echo "  contains: $expect"
