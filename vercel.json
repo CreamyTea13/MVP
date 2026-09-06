@@ -1,5 +1,4 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "alias": ["everyday-engine-tylerkapp13-5747.vercel.app"]
+  "outputDirectory": "dist"
 }
