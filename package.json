@@ -1,9 +1,9 @@
 {
   "name": "everyday-engine",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "private": true,
   "scripts": {
-    "build": "node build.mjs && node postbuild.mjs"
+    "build": "node build.mjs && node run-postbuild.mjs"
   },
   "engines": {
     "node": ">=20"
