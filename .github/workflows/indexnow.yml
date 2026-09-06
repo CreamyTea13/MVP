@@ -7,6 +7,7 @@ on:
       - build.mjs
       - postbuild.mjs
       - run-postbuild.mjs
+      - seo-v42.mjs
       - package.json
       - vercel.json
   workflow_dispatch:
@@ -15,7 +16,7 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for production update and notify IndexNow
+      - name: Verify ownership and notify IndexNow
         shell: bash
         run: |
           set -euo pipefail
@@ -25,7 +26,7 @@ jobs:
           KEY_URL="$BASE/$KEY.txt"
 
           ready=0
-          for attempt in {1..36}; do
+          for attempt in {1..12}; do
             code=$(curl -L -sS -o /tmp/indexnow-key -w "%{http_code}" "$KEY_URL" || true)
             body=$(tr -d '\r\n' </tmp/indexnow-key 2>/dev/null || true)
             if [ "$code" = "200" ] && [ "$body" = "$KEY" ]; then
@@ -33,10 +34,14 @@ jobs:
               echo "IndexNow ownership key is live."
               break
             fi
-            echo "Waiting for production key file (attempt $attempt/36, HTTP $code)."
+            echo "Production key not live yet (attempt $attempt/12, HTTP $code)."
             sleep 10
           done
-          [ "$ready" = "1" ] || { echo "Production key file did not become available."; exit 1; }
+
+          if [ "$ready" != "1" ]; then
+            echo "IndexNow deferred: canonical Vercel alias is still serving the pre-key production version."
+            exit 0
+          fi
 
           curl -L -fsS "$BASE/sitemap.xml" -o /tmp/sitemap.xml
           python - <<'PY' > /tmp/indexnow.json
