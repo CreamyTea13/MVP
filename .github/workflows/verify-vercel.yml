@@ -7,35 +7,28 @@ on:
       - .github/workflows/verify-vercel.yml
   workflow_dispatch:
 
-# Final public verification after Vercel production authentication was disabled.
 jobs:
-  smoke-test:
+  diagnose:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify stable production alias
+      - name: Diagnose stable and generated Vercel URLs
         shell: bash
         run: |
           set -u
-          BASE="https://everyday-engine-tylerkapp13-5747.vercel.app"
-          failures=0
-          check() {
-            local path="$1"
-            local expect="$2"
-            local out="/tmp/ee$(echo "$path" | tr '/.' '__')"
-            code=$(curl -L -sS -o "$out" -w "%{http_code}" "$BASE$path")
-            echo "$path -> HTTP $code"
-            if [ "$code" != "200" ] || ! grep -Fq "$expect" "$out"; then
-              echo "  expected content missing: $expect"
-              echo "  title: $(grep -io '<title>[^<]*' "$out" | head -1 | sed 's/<title>//I')"
-              failures=$((failures+1))
-            else
-              echo "  contains: $expect"
-            fi
-          }
-          check "/" "Everyday Engine"
-          check "/tools/unit-price-compare/" "Unit Price Compare"
-          check "/tools/overtime-pay/" "Overtime Pay Calculator"
-          check "/robots.txt" "User-agent: *"
-          check "/sitemap.xml" "<urlset"
-          echo "failures=$failures"
-          test "$failures" -eq 0
+          for BASE in \
+            "https://everyday-engine-tylerkapp13-5747.vercel.app" \
+            "https://everyday-engine-6lladp78u-tylerkapp13-5747.vercel.app"
+          do
+            echo "=== $BASE ==="
+            for path in "/" "/tools/unit-price-compare/" "/robots.txt" "/sitemap.xml"
+            do
+              out="/tmp/ee-body"
+              headers="/tmp/ee-headers"
+              code=$(curl -L -sS -D "$headers" -o "$out" -w "%{http_code}" "$BASE$path" || true)
+              echo "$path -> HTTP $code"
+              grep -iE '^(server|x-vercel|content-type|location):' "$headers" || true
+              printf 'body: '
+              head -c 300 "$out" | tr '\n' ' ' || true
+              echo
+            done
+          done
