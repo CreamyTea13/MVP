@@ -8,27 +8,44 @@ on:
   workflow_dispatch:
 
 jobs:
-  diagnose:
+  smoke-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Diagnose stable and generated Vercel URLs
+      - name: Verify portable production build
         shell: bash
         run: |
-          set -u
-          for BASE in \
-            "https://everyday-engine-tylerkapp13-5747.vercel.app" \
-            "https://everyday-engine-6lladp78u-tylerkapp13-5747.vercel.app"
-          do
-            echo "=== $BASE ==="
-            for path in "/" "/tools/unit-price-compare/" "/robots.txt" "/sitemap.xml"
-            do
-              out="/tmp/ee-body"
-              headers="/tmp/ee-headers"
-              code=$(curl -L -sS -D "$headers" -o "$out" -w "%{http_code}" "$BASE$path" || true)
-              echo "$path -> HTTP $code"
-              grep -iE '^(server|x-vercel|content-type|location):' "$headers" || true
-              printf 'body: '
-              head -c 300 "$out" | tr '\n' ' ' || true
-              echo
+          set -euo pipefail
+          BASE="https://everyday-engine-tylerkapp13-5747.vercel.app"
+
+          fetch_with_retry() {
+            local path="$1"
+            local out="$2"
+            local code=""
+            for attempt in {1..12}; do
+              code=$(curl -L -sS -o "$out" -w "%{http_code}" "$BASE$path" || true)
+              if [ "$code" = "200" ]; then
+                echo "$path -> HTTP 200"
+                return 0
+              fi
+              echo "$path -> HTTP $code (attempt $attempt/12)"
+              sleep 10
             done
-          done
+            return 1
+          }
+
+          fetch_with_retry "/" /tmp/home
+          grep -Fq "Everyday Engine" /tmp/home
+          grep -Fq "Unit Price Compare" /tmp/home
+          grep -Fq "Resale Profit" /tmp/home
+          grep -Fq "Share result" /tmp/home
+
+          fetch_with_retry "/assets/config.js" /tmp/config
+          grep -Fq "plusUrl" /tmp/config
+
+          fetch_with_retry "/robots.txt" /tmp/robots
+          grep -Fq "User-agent: *" /tmp/robots
+
+          fetch_with_retry "/sitemap.xml" /tmp/sitemap
+          grep -Fq "<urlset" /tmp/sitemap
+
+          echo "Everyday Engine portable production smoke test passed."
