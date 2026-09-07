@@ -53,3 +53,9 @@ Local verification: 39 automated tests pass (20 free-tool examples, two numerica
 7. Canonical search: confirm every sitemap URL and ownership-key file on the promoted Vercel alias, then run scripts/indexnow.mjs. Accept HTTP 200 and 202; neither guarantees indexing. Add Google/Bing webmaster ownership when account access allows. Keep all candidate, fulfillment and API URLs out of indexing.
 
 No purchases, ads, domains, paid subscriptions, or live test charges were made.
+
+## Final checkpoint, 2026-09-07
+
+GitHub PR #1 is a draft; independent GitHub CI passed. Desktop unit-price comparison and mobile 375px-frame category/navigation/paint calculation passed. Mobile document width equals scroll width (no horizontal overflow). Invalid purchase references are visibly rejected without offering a download. AppDeploy reports ready with no frontend/network/backend errors, but does not return a completed E2E test-suite record; do not call the entire paid flow verified.
+
+The existing sandbox Payment Link now redirects to the candidate /fulfillment/ route with CHECKOUT_SESSION_ID. Live checkout remains inactive. The canonical IndexNow ownership key was checked and returns 404; no submission was sent. Secure-entry forms were prepared for the sandbox and live restricted read keys. No keys have been submitted or bound yet.
