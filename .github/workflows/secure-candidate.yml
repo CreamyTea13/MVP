@@ -1,0 +1,19 @@
+name: Verify secure candidate
+on:
+  push:
+    branches: [secure-launch-candidate]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node build.mjs && node run-postbuild.mjs && node seo-v42.mjs && node plus-v43.mjs && node launch-layer.mjs
+      - run: node --check dist/assets/app.js
+      - run: node --test tests/*.test.mjs
