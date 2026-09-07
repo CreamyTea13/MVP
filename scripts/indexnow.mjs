@@ -1,0 +1,10 @@
+const base='https://everyday-engine-tylerkapp13-5747.vercel.app';
+const key='bb07bc1aac3124e31ea838541931a21b';
+const get=async url=>{const r=await fetch(url,{signal:AbortSignal.timeout(15000)});if(!r.ok)throw Error(`Production verification failed: HTTP ${r.status}`);return r.text();};
+if((await get(`${base}/${key}.txt`)).trim()!==key)throw Error('Canonical ownership key is not verified; do not submit');
+const sitemap=await get(base+'/sitemap.xml');
+const urls=[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m=>m[1]);
+if(!urls.length||urls.some(u=>!u.startsWith(base+'/')||/\/(fulfillment|api)\//.test(u)))throw Error('Unsafe sitemap');
+const r=await fetch('https://api.indexnow.org/indexnow',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({host:new URL(base).host,key,keyLocation:`${base}/${key}.txt`,urlList:urls}),signal:AbortSignal.timeout(15000)});
+if(![200,202].includes(r.status))throw Error(`IndexNow rejected submission: HTTP ${r.status}`);
+console.log(`IndexNow accepted ${urls.length} URLs (HTTP ${r.status}); this does not guarantee indexing.`);

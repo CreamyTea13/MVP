@@ -1,0 +1,55 @@
+# Tests
+
+## Test 1 - Compare prices and handle ties [sanity]
+Viewport: desktop
+Covers: homepage navigation, calculator output, equal-price guardrail, related tool routing
+Description: Verify the main calculation workflow and the corrected tie behavior.
+Steps:
+1. Open Unit Price Compare from the homepage.
+2. Enter Option A price 12, quantity 24; Option B price 8, quantity 10. Calculate.
+3. Confirm Option A costs $0.50 per unit and Option B costs $0.80 per unit.
+4. Change Option B price to 5 and quantity to 10. Calculate.
+Expected: The first comparison recommends Option A; the second says Same unit price and does not recommend one as cheaper.
+
+## Test 2 - Search and calculate overtime
+Viewport: desktop
+Covers: search, filtering, overtime calculation, sharing control
+Description: Search selects the relevant tool and produces correct pay.
+Steps:
+1. Search for overtime on the homepage, then open Overtime Pay Calculator.
+2. Enter rate 20 and hours 45. Calculate.
+Expected: Estimated gross pay is $950.00, regular pay $800.00, overtime $150.00, and Share result is available.
+
+## Test 3 - Mobile category, painting and invalid quantity
+Viewport: mobile
+Covers: mobile layout, category filtering, paint calculation, invalid quantity guardrail
+Description: Verify useful mobile workflows without horizontal overflow.
+Steps:
+1. Filter the homepage to Home, open Paint Calculator, enter area 800, coats 2, coverage 400 and calculate.
+2. Return home and open Unit Price Compare. Enter prices 12 and 8, quantities 0 and 10, then calculate.
+Expected: Painting recommends 4 gallons. Zero quantity produces Check your inputs. Forms and results remain usable at 375px width.
+
+## Test 4 - Block anonymous and forged download access
+Viewport: mobile
+Covers: fulfillment form, POST /api/fulfillment/redeem, anonymous denial, forged reference rejection, mobile error recovery
+Description: Download access is never granted from merely visiting a URL.
+Steps:
+1. Open /fulfillment/ with no query parameters. Confirm there is no Download Everyday Engine Plus button visible.
+2. Enter not-a-purchase as the purchase reference and choose Verify purchase.
+3. Enter cs_test_abcdefghijklmnopqrstuv and choose Verify purchase.
+Expected: Invalid or unverified references show a useful error, and no archive becomes available. With no configured secrets, secure delivery is unavailable. No Purchase complete message appears.
+
+## Test 5 - Checkout remains paused when commerce is unavailable
+Viewport: desktop
+Covers: Plus page, GET /api/commerce/status, paused-checkout guardrail, backend failure presentation
+Description: Customers cannot start a payment before verification, including when commerce status fails.
+QA Faults:
+```json
+[{"method":"GET","path":"/api/commerce/status","status":503,"body_json":{"error":"delivery_unavailable"}}]
+```
+Steps:
+1. Open /plus/.
+2. Confirm the $9 one-time product description is shown.
+Expected: Purchases are temporarily unavailable, and no active purchase link is shown.
+
+Paid delivery gate (blocked until the restricted sandbox key is configured): Complete the existing $9 sandbox Payment Link using Stripe test card details, return to /fulfillment/, verify, download through POST /api/fulfillment/download, extract the archive, and calculate offline. This is mandatory before checkout or production promotion; the tests above do not substitute for it.

@@ -1,18 +1,6 @@
 import fs from "node:fs";
 
-const source = fs.readFileSync("postbuild.mjs", "utf8");
-const fixed = source.replace(
-  'await navigator.clipboard.writeText(`${payload.text}\\n${payload.url}`);',
-  'await navigator.clipboard.writeText(payload.text + "\\n" + payload.url);'
-);
-
-const runtimePath = ".postbuild-runtime.mjs";
-fs.writeFileSync(runtimePath, fixed, "utf8");
-try {
-  await import(`./${runtimePath}?v=${Date.now()}`);
-} finally {
-  fs.rmSync(runtimePath, { force: true });
-}
+await import('./postbuild.mjs');
 
 const indexNowKey = "bb07bc1aac3124e31ea838541931a21b";
 fs.writeFileSync(`dist/${indexNowKey}.txt`, `${indexNowKey}\n`, "utf8");

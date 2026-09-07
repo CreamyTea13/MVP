@@ -31,8 +31,7 @@ let EE_CONFIG = { analytics: { enabled: false }, plusUrl: "", supportUrl: "", of
 
 async function loadEEConfig(){
   try{
-    const response = await fetch("/assets/monetization.json", { cache: "no-store" });
-    if(response.ok) EE_CONFIG = { ...EE_CONFIG, ...(await response.json()) };
+    EE_CONFIG = ${JSON.stringify(config)};
   }catch(_e){}
   if(EE_CONFIG.analytics?.enabled && EE_CONFIG.analytics?.provider === "vercel"){
     window.va = window.va || function(){ (window.vaq = window.vaq || []).push(arguments); };
@@ -76,7 +75,7 @@ function enhanceResult(toolId){
       if(navigator.share){
         await navigator.share(payload);
       }else if(navigator.clipboard){
-        await navigator.clipboard.writeText(`${payload.text}\n${payload.url}`);
+        await navigator.clipboard.writeText(payload.text + "\\n" + payload.url);
         share.textContent = "Copied";
         setTimeout(() => share.textContent = "Share result", 1500);
       }
